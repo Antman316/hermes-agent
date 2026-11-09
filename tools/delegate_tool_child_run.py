@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import contextvars
+import contextlib
 import json
 import os
 import threading
@@ -933,6 +934,15 @@ class _ChildRun:
             from tools.delegate_tool_routes import child_profile_scope
             # A profile-routed child converses as that profile (config, secrets, skills, terminal policy).
             with child_profile_scope(child), delegated_child_context(str(getattr(child, "session_id", "") or "")):
+                # Child turns never traverse the gateway's agent:start emit; the shared turn-inbound
+                # helper covers the spawn's goal message in the CHILD's profile scope, where its
+                # session lands (no-op where that profile has no matcher). suppress: coverage must
+                # never fail a spawn — not even the import (code-skew window).
+                with contextlib.suppress(Exception):
+                    from agent.preflight_inbound import emit_turn_inbound
+                    emit_turn_inbound(
+                        self.goal, session_id=str(getattr(child, "session_id", "") or self.child_task_id),
+                        platform="subagent")
                 return child.run_conversation(
                     user_message=user_message, task_id=self.child_task_id, stream_callback=self.relay_text,
                 )

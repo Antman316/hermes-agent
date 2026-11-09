@@ -1190,6 +1190,11 @@ def _(rid, params: dict) -> dict:
         with _side_agent_session_db(kwargs.get("session_db")) as session_db:
             agent = AIAgent(**{**kwargs, "session_db": session_db})
             try:
+                # Background side turns never traverse agent:start either; same suppress
+                # contract — coverage must never fail the turn, not even on import skew.
+                with contextlib.suppress(Exception):
+                    from agent.preflight_inbound import emit_turn_inbound
+                    emit_turn_inbound(text, session_id=str(task_id or ""), platform="tui")
                 result = agent.run_conversation(user_message=text, task_id=task_id)
             finally:
                 # AIAgent.close() is the owner boundary (memory shutdown, tool

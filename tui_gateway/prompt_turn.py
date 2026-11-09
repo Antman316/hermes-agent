@@ -822,6 +822,14 @@ def _invoke_agent(
     agent._on_session_title = lambda t, _src, _k=_title_key: _emit(
         "session.title", sid, {"session_id": _k, "title": t})
     _usage_stop, _usage_thread = _start_usage_ticker(sid, agent)
+    # The TUI/Desktop prompt path never traverses gateway.run_turn's agent:start emit; the shared
+    # turn-inbound helper gives this turn the same preflight coverage (no-op without a matcher).
+    # suppress: coverage must never fail a turn — not even the import (code-skew window).
+    with contextlib.suppress(Exception):
+        from agent.preflight_inbound import emit_turn_inbound
+        emit_turn_inbound(
+            text, session_id=str(getattr(agent, "session_id", "") or ""),
+            platform=str(getattr(agent, "platform", "") or "desktop"))
     try:
         from agent.notification_presentation import notification_turn, event_presentation_muted
         with notification_turn(agent, muted=event_presentation_muted("message.delta", sid), session_id=sid):

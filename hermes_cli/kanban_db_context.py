@@ -109,6 +109,26 @@ def _ctx_header(lines: list[str], task: Task) -> None:
         lines.append("")
 
 
+def _ctx_preflight(lines: list[str], task: Task) -> None:
+    """Admission-only injected section: the top-5 skill-matcher result for this task's inbound
+    text (same ``goal_text`` the worker's session policy carries). ACP workers' turns run inside
+    the Devin process, never through the gateway's ``agent:start`` hook — this section plus the
+    matcher run's own telemetry row (``platform=kanban``, ``session_id=kanban:<task_id>``) is the
+    lane's coverage. Any failure is a silent no-op: admission is never blocked on the matcher."""
+    try:
+        from agent.preflight_inbound import match_markdown_for_admission
+        body = match_markdown_for_admission(
+            "\n\n".join(p for p in (task.title, task.body) if p),
+            session_id=f"kanban:{task.id}", platform="kanban")
+    except Exception:
+        return  # import/call failure must never block admission
+    if not body:
+        return
+    lines.append("## Preflight skill matches")
+    lines.append(_ctx_cap(body))
+    lines.append("")
+
+
 def _ctx_attachments(lines: list[str], attachments: list[Attachment]) -> None:
     """Absolute on-disk paths so the worker's file tools read them directly
     (remote terminal backends need the attachments dir mounted)."""

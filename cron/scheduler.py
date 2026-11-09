@@ -2606,6 +2606,13 @@ def run_job(
             session_db=_session_db)
         _audit = _FireAudit(job, job_id, model)
 
+        # Cron fires never traverse the gateway's agent:start emit (canonical or in-process path);
+        # the shared turn-inbound helper covers the job prompt under the fire's profile scope.
+        # suppress: coverage must never fail a fire — not even the import (code-skew window).
+        with contextlib.suppress(Exception):
+            from agent.preflight_inbound import emit_turn_inbound
+            emit_turn_inbound(prompt, session_id=_cron_session_id, platform="cron")
+
         result = _run_agent_with_watchdog(
             agent, prompt, job, job_id, job_name, scope.task_id, cancel_event,
             worker_state=_worker_state)
