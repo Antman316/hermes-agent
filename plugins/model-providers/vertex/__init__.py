@@ -20,6 +20,11 @@ class VertexProfile(ProviderProfile):
 
         raw = _build_gemini_thinking_config(context.get("model") or "", context.get("reasoning_config"))
         thinking_config = _snake_case_gemini_thinking_config(raw) if raw else None
+        # LOCAL CARRY (Ezra 2026-11-12): Vertex's /endpoints/openapi surface returns thought summaries
+        # inline in message content ("<think>Thinking Process: ..."), not a reasoning field, so
+        # include_thoughts=True leaks them to chat. Keep the thinking level; hide the thoughts.
+        if thinking_config and "include_thoughts" in thinking_config:
+            thinking_config["include_thoughts"] = False
         return {"extra_body": {"google": {"thinking_config": thinking_config}}} if thinking_config else {}
 
 
